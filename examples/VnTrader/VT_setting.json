@@ -1,0 +1,21 @@
+{
+	"fontFamily": "微软雅黑",
+	"fontSize": 9,
+
+	"mongoHost": "localhost",
+	"mongoPort": 27017,
+	"mongoLogging": true,
+
+	"darkStyle": true,
+	"language": "chinese",
+
+	"logActive": true,
+	"logLevel": "info",
+	"logConsole": true,
+	"logFile": true,
+
+	"tdPenalty": ["IF", "IH", "IC"],
+
+	"start_Gateway":"CTP",
+	"start_App":"CtaStrategy"
+}

@@ -1,0 +1,9 @@
+how to create a vanilla vnpy + CtaLLStrategy:
+0) unzip the vnpy.master from github
+1) conda create new virtual envs, such as py27_vnpy
+2) install necessary packages:
+    pip install vnpy pymongo msgpack-python websocket-client qdarkstyle
+    conda install -c quantopian ta-lib=0.4.9
+    pip install itchat # support the wechat
+3) setting ctp_connect.json
+4) setting cta_setting.json
