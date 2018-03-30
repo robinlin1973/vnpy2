@@ -12,7 +12,7 @@ from vnpy.trader.uiBasicWidget import *
 class MainWindow(QtWidgets.QMainWindow):
     """主窗口"""  
 
-    signalStatusBar = QtCore.Signal(type(Event()))
+    signalStatusBar = QtCore.pyqtSignal(type(Event()))
 
     #----------------------------------------------------------------------
     def __init__(self, mainEngine, eventEngine):
@@ -40,28 +40,33 @@ class MainWindow(QtWidgets.QMainWindow):
         self.initCentral()
         self.initMenu()
         self.initStatusBar()
-        
+
     #----------------------------------------------------------------------
     def initCentral(self):
         """初始化中心区域"""
         widgetMarketM, dockMarketM = self.createDock(MarketMonitor, vtText.MARKET_DATA, QtCore.Qt.RightDockWidgetArea)
+        widgetPriceW, dockPriceW = self.createDock(PriceWidget, 'Price Info', QtCore.Qt.RightDockWidgetArea) #todo add string
+        widgetOrderM, dockOrderM = self.createDock(OrderMonitor, vtText.ORDER, QtCore.Qt.RightDockWidgetArea)
         widgetLogM, dockLogM = self.createDock(LogMonitor, vtText.LOG, QtCore.Qt.BottomDockWidgetArea)
         widgetErrorM, dockErrorM = self.createDock(ErrorMonitor, vtText.ERROR, QtCore.Qt.BottomDockWidgetArea)
         widgetTradeM, dockTradeM = self.createDock(TradeMonitor, vtText.TRADE, QtCore.Qt.BottomDockWidgetArea)
-        widgetOrderM, dockOrderM = self.createDock(OrderMonitor, vtText.ORDER, QtCore.Qt.RightDockWidgetArea)
         widgetWorkingOrderM, dockWorkingOrderM = self.createDock(WorkingOrderMonitor, vtText.WORKING_ORDER, QtCore.Qt.BottomDockWidgetArea)
         widgetPositionM, dockPositionM = self.createDock(PositionMonitor, vtText.POSITION, QtCore.Qt.BottomDockWidgetArea)
         widgetAccountM, dockAccountM = self.createDock(AccountMonitor, vtText.ACCOUNT, QtCore.Qt.BottomDockWidgetArea)
         widgetTradingW, dockTradingW = self.createDock(TradingWidget, vtText.TRADING, QtCore.Qt.LeftDockWidgetArea)
+
     
         self.tabifyDockWidget(dockTradeM, dockErrorM)
         self.tabifyDockWidget(dockTradeM, dockLogM)
         self.tabifyDockWidget(dockPositionM, dockAccountM)
         self.tabifyDockWidget(dockPositionM, dockWorkingOrderM)
+        self.tabifyDockWidget(dockMarketM, dockOrderM)
+        self.tabifyDockWidget(dockMarketM, dockPriceW)
     
         dockTradeM.raise_()
         dockPositionM.raise_()
-    
+        #dockOrderM.raise_()
+
         # 连接组件之间的信号
         widgetPositionM.itemDoubleClicked.connect(widgetTradingW.closePosition)
         
@@ -115,7 +120,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # 如果没有应用界面，则不添加菜单按钮
             if not appDetail['appWidget']:
                 continue
-            
+
             function = self.createOpenAppFunction(appDetail)
             action = self.createAction(appDetail['appDisplayName'], function, loadIconPath(appDetail['appIco']))
             appMenu.addAction(action)
@@ -152,7 +157,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.sbCount == self.sbTrigger:
             self.sbCount = 0
             self.statusLabel.setText(self.getCpuMemory())
-    
+
     #----------------------------------------------------------------------
     def getCpuMemory(self):
         """获取CPU和内存状态信息"""
@@ -239,6 +244,7 @@ class MainWindow(QtWidgets.QMainWindow):
     #----------------------------------------------------------------------
     def closeEvent(self, event):
         """关闭事件"""
+        # print "uiMainWindow:closeEvent"
         reply = QtWidgets.QMessageBox.question(self, vtText.EXIT,
                                            vtText.CONFIRM_EXIT, QtWidgets.QMessageBox.Yes | 
                                            QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)

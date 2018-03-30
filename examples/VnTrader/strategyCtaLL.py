@@ -291,7 +291,7 @@ class CtaLLStrategy(CtaTemplate):
                     record["position"] -= order.tradedVolume
                 elif order.status == STATUS_ALLTRADED:
                     record["position"] = 0
-                    record["buy_id"] = ""
+                    record["sell_id"] = ""
 
         if found == False:
             self.writeCtaLog("onOrder::ERROR 订单不在控制表中，请仔细核对:{}\n 订单:{}".format(self.get_dense_control_dict(), repr(order.__dict__).decode('unicode-escape')))
@@ -315,6 +315,10 @@ class CtaLLStrategy(CtaTemplate):
     def onPositionEvent(self, position):  #event,
         """收到仓位信息推送.确保策略开始时，仓位为空.本消息仅做仓位审查,不做仓位平衡处理"""
         self.writeCtaLog("onPositionEvent::当前仓位信息{}".format(position))
+    # ----------------------------------------------------------------------
+    def onAccountEvent(self, account):  #event,
+        """收到账号信息推送"""
+        self.writeCtaLog("onAccountEvent::当前账号信息{}".format(account))
 
     #----------------------------------------------------------------------
     def onTrade(self, trade):
@@ -405,13 +409,7 @@ class CtaLLStrategy(CtaTemplate):
 
     # ----------------------------------------------------------------------
     def onInstrument(self,instrument):
-        #print "onInstrument::",instrument
         pass
-
-    # ----------------------------------------------------------------------
-    def onAccountEvent(self,  account):  #event,
-        pass
-        """收到账号信息推送"""
 
     # ----------------------------------------------------------------------
     def get_dense_control_dict(self,print_flag = False):

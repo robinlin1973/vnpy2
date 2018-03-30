@@ -323,6 +323,30 @@ class CtaEngine(object):
         self.eventEngine.register(EVENT_TICK, self.processTickEvent)
         self.eventEngine.register(EVENT_ORDER, self.processOrderEvent)
         self.eventEngine.register(EVENT_TRADE, self.processTradeEvent)
+        # ROBINLIN
+        self.eventEngine.register(EVENT_ACCOUNT, self.processAccountEvent)
+        self.eventEngine.register(EVENT_POSITION, self.processPositionEvent)
+
+
+    #ROBINLIN----------------------------------------------------------------------
+    def processAccountEvent(self,event):
+        """账户资金更新"""
+        # self.writeCtaLog("processAccountEvent::账户资金更新" )
+        account = event.dict_['data']
+        for name in self.strategyDict.keys():
+            strategy = self.strategyDict[name]
+            if strategy.inited:
+                self.callStrategyFunc(strategy, strategy.onAccountEvent, account)
+
+    #ROBINLIN----------------------------------------------------------------------
+    def processPositionEvent(self, event):
+        """持仓更新"""
+        # self.writeCtaLog("processPositionEvent::持仓更新")
+        position = event.dict_['data']
+        for name in self.strategyDict.keys():
+            strategy = self.strategyDict[name]
+            if strategy.inited:
+                self.callStrategyFunc(strategy, strategy.onPositionEvent, position)
  
     #----------------------------------------------------------------------
     def insertData(self, dbName, collectionName, data):
