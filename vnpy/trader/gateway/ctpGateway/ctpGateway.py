@@ -388,16 +388,16 @@ class CtpMdApi(MdApi):
         
         # 大商所日期转换
         if tick.exchange is EXCHANGE_DCE:
-            newTime = datetime.strptime(tick.time, '%H:%M:%S.%f').time()    # 最新tick时间戳
-            
-            # 如果新tick的时间小于夜盘分隔，且上一个tick的时间大于夜盘分隔，则意味着越过了12点
-            if (self.tickTime and 
-                newTime < NIGHT_TRADING and
-                self.tickTime > NIGHT_TRADING):
-                self.tradingDt += timedelta(1)                          # 日期加1
-                self.tradingDate = self.tradingDt.strftime('%Y%m%d')    # 生成新的日期字符串
-                
-            tick.date = self.tradingDate    # 使用本地维护的日期
+            newTime = datetime.strptime(tick.time, '%H:%M:%S.%f').time()  # 最新tick时间戳
+
+            #  夜盘日期减1或3
+            if newTime > NIGHT_TRADING:
+                actionDay = datetime.strptime(tick.date, '%Y%m%d')  # 获取自然日信息并转化为date对象
+                if datetime.today().weekday() == 4:
+                    actionDay += timedelta(-3)  # 日期减3
+                else:
+                    actionDay += timedelta(-1)
+                tick.date = actionDay.strftime('%Y%m%d')  # 生成新的日期字符串
             
             self.tickTime = newTime         # 更新上一个tick时间
         
@@ -730,51 +730,59 @@ class CtpTdApi(TdApi):
         """持仓查询回报"""
         if not data['InstrumentID']:
             return
-        
-        # 获取持仓缓存对象
-        posName = '.'.join([data['InstrumentID'], data['PosiDirection']])
-        if posName in self.posDict:
-            pos = self.posDict[posName]
-        else:
-            pos = VtPositionData()
-            self.posDict[posName] = pos
-            
-            pos.gatewayName = self.gatewayName
-            pos.symbol = data['InstrumentID']
-            pos.vtSymbol = pos.symbol
-            pos.direction = posiDirectionMapReverse.get(data['PosiDirection'], '')
-            pos.vtPositionName = '.'.join([pos.vtSymbol, pos.direction]) 
-        
-        # 针对上期所持仓的今昨分条返回（有昨仓、无今仓），读取昨仓数据
-        if data['YdPosition'] and not data['TodayPosition']:
-            pos.ydPosition = data['Position']
-            
-        # 计算成本
-        size = self.symbolSizeDict[pos.symbol]
-        cost = pos.price * pos.position * size
-        
-        # 汇总总仓
-        pos.position += data['Position']
-        pos.positionProfit += data['PositionProfit']
-        
-        # 计算持仓均价
-        if pos.position and size:    
-            pos.price = (cost + data['PositionCost']) / (pos.position * size)
-        
-        # 读取冻结
-        if pos.direction is DIRECTION_LONG: 
-            pos.frozen += data['LongFrozen']
-        else:
-            pos.frozen += data['ShortFrozen']
-        
-        # 查询回报结束
-        if last:
-            # 遍历推送
-            for pos in self.posDict.values():
-                self.gateway.onPosition(pos)
-            
-            # 清空缓存
-            self.posDict.clear()
+
+        try:
+            # 获取持仓缓存对象
+            posName = '.'.join([data['InstrumentID'], data['PosiDirection']])
+            if posName in self.posDict:
+                pos = self.posDict[posName]
+            else:
+                pos = VtPositionData()
+                self.posDict[posName] = pos
+
+                pos.gatewayName = self.gatewayName
+                pos.symbol = data['InstrumentID']
+                pos.vtSymbol = pos.symbol
+                pos.direction = posiDirectionMapReverse.get(data['PosiDirection'], '')
+                pos.vtPositionName = '.'.join([pos.vtSymbol, pos.direction])
+
+            # 针对上期所持仓的今昨分条返回（有昨仓、无今仓），读取昨仓数据
+            if data['YdPosition'] and not data['TodayPosition']:
+                pos.ydPosition = data['Position']
+
+            # 计算成本
+            size = self.symbolSizeDict[pos.symbol]
+            cost = pos.price * pos.position * size
+
+            # 汇总总仓
+            pos.position += data['Position']
+            pos.positionProfit += data['PositionProfit']
+
+            # 计算持仓均价
+            if pos.position and size:
+                pos.price = (cost + data['PositionCost']) / (pos.position * size)
+
+            # 读取冻结
+            if pos.direction is DIRECTION_LONG:
+                pos.frozen += data['LongFrozen']
+            else:
+                pos.frozen += data['ShortFrozen']
+
+            # 查询回报结束
+            if last:
+                # 遍历推送
+                for pos in self.posDict.values():
+                    self.gateway.onPosition(pos)
+
+                # 清空缓存
+                self.posDict.clear()
+        except KeyError as e:
+            print "Error:".format(e)
+            print "Input Data:".format(data)
+            print "symbolSizeDict".format(self.symbolSizeDict)
+            return
+
+
         
     #----------------------------------------------------------------------
     def onRspQryTradingAccount(self, data, error, n, last):

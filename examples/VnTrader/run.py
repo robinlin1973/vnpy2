@@ -30,8 +30,6 @@ from vnpy.trader.vtGlobal import globalSetting
 
 import itchat
 
-
-
 #----------------------------------------------------------------------
 def main():
     # Back up the reference to the exceptionhook
@@ -40,8 +38,8 @@ def main():
     # Set the exception hook to our wrapping function
     sys.excepthook = my_exception_hook
 
-    if not itchat.instanceList[0].alive:
-        itchat.auto_login(hotReload=True)
+    # if not itchat.instanceList[0].alive:
+    #     itchat.auto_login(hotReload=True)
 
     """主程序入口"""
     # 创建Qt应用对象

@@ -324,8 +324,8 @@ class CtaEngine(object):
         self.eventEngine.register(EVENT_ORDER, self.processOrderEvent)
         self.eventEngine.register(EVENT_TRADE, self.processTradeEvent)
         # ROBINLIN
-        self.eventEngine.register(EVENT_ACCOUNT, self.processAccountEvent)
-        self.eventEngine.register(EVENT_POSITION, self.processPositionEvent)
+        # self.eventEngine.register(EVENT_ACCOUNT, self.processAccountEvent)
+        # self.eventEngine.register(EVENT_POSITION, self.processPositionEvent)
 
 
     #ROBINLIN----------------------------------------------------------------------
@@ -482,7 +482,7 @@ class CtaEngine(object):
             strategy = self.strategyDict[name]
             
             if strategy.trading:
-                strategy.trading = False
+                #strategy.trading = False
                 self.callStrategyFunc(strategy, strategy.onStop)
                 
                 # 对该策略发出的所有限价单进行撤单
@@ -493,7 +493,9 @@ class CtaEngine(object):
                 # 对该策略发出的所有本地停止单撤单
                 for stopOrderID, so in self.workingStopOrderDict.items():
                     if so.strategy is strategy:
-                        self.cancelStopOrder(stopOrderID)   
+                        self.cancelStopOrder(stopOrderID)
+
+                strategy.trading = False  #RL move from front to here, let sync data working
         else:
             self.writeCtaLog(u'策略实例不存在：%s' %name)    
             
@@ -622,7 +624,7 @@ class CtaEngine(object):
                                  d, flt, True)
         
         content = u'策略%s同步数据保存成功，当前持仓%s' %(strategy.name, strategy.pos)
-        #RL self.writeCtaLog(content)
+        #self.writeCtaLog(content)
     
     #----------------------------------------------------------------------
     def loadSyncData(self, strategy):

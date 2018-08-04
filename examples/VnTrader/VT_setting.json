@@ -17,5 +17,7 @@
 	"tdPenalty": ["IF", "IH", "IC"],
 
 	"start_Gateway":"CTP",
-	"start_App":"CtaStrategy"
+	"start_App":"CtaStrategy",
+	"web_chat":false
+
 }

@@ -37,6 +37,8 @@ import winsound
 from pprint import pprint,pformat
 #from msg_my import init_mail_server, send_email
 import itchat  # for sending wechat msg
+import requests
+from vnpy.trader.vtGlobal import globalSetting
 
 ########################################################################
 class CtaLLStrategy(CtaTemplate):
@@ -51,7 +53,7 @@ class CtaLLStrategy(CtaTemplate):
     control_dict = {}
     PROFIT = 15.00
     START2SHORT = 550.00 #此价格以上的网格点可开空单
-    TICK_COUNTER = 100
+    TICK_COUNTER = 50
     tick_number = 0
 
     #scheduler = None    # background scheduler for daily routine task
@@ -89,19 +91,14 @@ class CtaLLStrategy(CtaTemplate):
         self.am = ArrayManager()
 
         #self.price_grid = [str(453 + i * 10) for i in range(0, 10)]
-        self.price_grid = [str(453 + i * 10) for i in range(0, 15)]
+        self.price_grid = [str(433 + i * 10) for i in range(0, 17)]
         self.tick_number = self.TICK_COUNTER #each X ticks, call tick_rebalance
         for grid in self.price_grid:
              self.control_dict[grid] = { 'buy_id': "", 'position': 0, 'sell_id': ""}
 
         self.last_tick = None # 保存上个TICK
-        self.wechat_flag = False
-        #print "__init__"
+        self.wechat_flag = globalSetting['web_chat']
 
-        # 注意策略类中的可变对象属性（通常是list和dict等），在策略初始化时需要重新创建，
-        # 否则会出现多个策略实例之间数据共享的情况，有可能导致潜在的策略逻辑错误风险，
-        # 策略类中的这些可变对象属性可以选择不写，全都放在__init__下面，写主要是为了阅读
-        # 策略时方便（更多是个编程习惯的选择）
 
     def onInit(self):
         """初始化策略（必须由用户继承实现）"""
@@ -115,24 +112,22 @@ class CtaLLStrategy(CtaTemplate):
     def onStart(self):
         """启动策略（必须由用户继承实现）"""
         #self.writeCtaLog(u'Demo演示策略启动')
-        self.trading = True
         self.putEvent()
         self.get_dense_control_dict(True)
-        # # 初始化邮件服务
-        # self.mailServer = init_mail_server()
-        # send_email(self.mailServer,
-        #     '当前网格\n{}'.format(pformat(self.get_dense_control_dict(), indent=4)),
-        #     "策略启动@{}".format(datetime.now().time()))
 
         # 初始化微信服务
         # if self.wechat_flag:
-        if not itchat.instanceList[0].alive:
-            itchat.auto_login(hotReload=True)
+        if not itchat.instanceList[0].alive and self.wechat_flag:
+            try:
+                itchat.auto_login(hotReload=True)
+            except requests.exceptions.ConnectionError as e:
+                print e
 
-        if itchat.instanceList[0].alive:
+        if itchat.instanceList[0].alive and self.wechat_flag:
             self.friends = itchat.get_friends(update=True)
             self.send_wechat_msg(u'策略启动', u'管刚')
             '''发送微信消息'''  # u'管刚' # u'Jane洁'
+
 
         #添加预定任务
         # self.scheduler.add_job(self.onStop, 'cron', day_of_week='mon-fri', hour=14, minute=59)
@@ -150,17 +145,15 @@ class CtaLLStrategy(CtaTemplate):
     #----------------------------------------------------------------------
     def onStop(self):
         """停止策略"""
-        # TODO WORKAROUND: 11:29调用，取消所有夜盘订单
-        self.trading = False
-        self.cancelAll()    #stopStrategy of ctaEngine will call cancelAll then call onStop of strategy
-        sleep(10)
-        self.syncWithOrderDict()
         # 同步数据到数据库
         self.saveSyncData()
         self.putEvent()
-        # #关闭邮件服务
-        # self.mailServer.close()
-        # #关闭微信服务
+
+        self.cancelAll()    #stopStrategy of ctaEngine will call cancelAll then call onStop of strategy
+        sleep(10)
+        self.syncWithOrderDict()
+
+        # 关闭微信服务
         self.send_wechat_msg(u'策略关闭', u'管刚')
         # itchat.logout()
         # 清空所有预定任务
@@ -169,7 +162,7 @@ class CtaLLStrategy(CtaTemplate):
     #----------------------------------------------------------------------
     def send_wechat_msg(self,msg,name):
         '''发送微信消息''' # u'管刚' # u'Jane洁'
-        if not itchat.instanceList[0].alive:
+        if not itchat.instanceList[0].alive or not self.wechat_flag:
             return
 
         for friend in self.friends:
@@ -180,8 +173,8 @@ class CtaLLStrategy(CtaTemplate):
     def onTick(self, tick):
         """收到行情TICK推送"""
         # print "收到行情TICK推送"
-        if not self.inited or not self.trading:# or not self.is_Trading_Slot():  # strategy not inited or not started
-            #print ("onTick::策略未初始化/未启动不处理tick信息{}")
+        if not self.inited or not self.trading or not self.is_Trading_Time():# or not self.is_Trading_Slot():  # strategy not inited or not started
+            #print ("onTick::策略未初始化/未启动/非交易时段不处理tick信息{}")
             return
 
         if self.last_tick == None:
@@ -314,17 +307,21 @@ class CtaLLStrategy(CtaTemplate):
     # ----------------------------------------------------------------------
     def onPositionEvent(self, position):  #event,
         """收到仓位信息推送.确保策略开始时，仓位为空.本消息仅做仓位审查,不做仓位平衡处理"""
-        self.writeCtaLog("onPositionEvent::当前仓位信息{}".format(position))
+        if self.tick_number == 0:
+            self.writeCtaLog("onPositionEvent::当前仓位信息{}".format(position.__dict__))
     # ----------------------------------------------------------------------
     def onAccountEvent(self, account):  #event,
         """收到账号信息推送"""
-        self.writeCtaLog("onAccountEvent::当前账号信息{}".format(account))
+        if self.tick_number == 0:
+            self.writeCtaLog("onAccountEvent::当前账号信息{}".format(account.__dict__))
 
     #----------------------------------------------------------------------
     def onTrade(self, trade):
         '''onTrade 提醒及发布状态更新'''
         self.writeCtaLog("onTrade::成交确认{}".format(trade.__dict__))
         wechat_msg = u'成交确认:订单[{}] 价格[{}] 方向[{}] 成交{}手'.format(trade.vtOrderID, trade.price, trade.direction, trade.volume)
+        trade.tradeTime = str(datetime.now())
+        self.ctaEngine.insertData(TRADE_DB_NAME, trade.symbol,trade)  # ROBIN LIN
         self.send_wechat_msg(wechat_msg, u'管刚')
         winsound.Beep(2500, 1000)
 #       send_email()
@@ -423,3 +420,17 @@ class CtaLLStrategy(CtaTemplate):
             pprint(dense_control_dict)
 
         return dense_control_dict
+
+
+    #----------------------------------------------------------------------
+    def is_Trading_Time(self): #当前是否在交易时段
+        now = datetime.now()
+        now_workday = now.weekday()   #wrong!need to check the tick date
+        now_time = now.time()
+
+        if now_workday < 5 and (time(9, 0) < now_time < time(11, 30) or
+                                time(13, 30) < now_time < time(15, 0)
+                                or time(21, 0) < now_time < time(23, 30)):
+            return True
+        else:
+            return False
